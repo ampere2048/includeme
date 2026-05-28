@@ -342,7 +342,7 @@
             }
         }
 
-        // Modal Utilities
+        // Modal Utilities - FIXED TYPO HERE
         function openAuthModal(mode) {
             currentAuthMode = mode;
             const title = document.getElementById('modalTitle');
@@ -365,8 +365,9 @@
             authModalOverlay.classList.remove('active');
         }
 
+        // Fixed clicking outside to close
         authModalOverlay.addEventListener('click', (e) => {
-            if (e.target === authModalOverlay) closeAuthMode();
+            if (e.target === authModalOverlay) closeAuthModal();
         });
 
         function toggleAuthMode() {

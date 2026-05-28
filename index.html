@@ -98,23 +98,83 @@
             border-radius: var(--border-radius);
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            transition: all 0.2s;
         }
 
-        .github-btn {
-            background-color: #24292e;
-            color: white;
-            border: none;
-            padding: 0.8rem 2rem;
-            font-size: 1rem;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            display: inline-flex;
+        .cta-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* --- Auth Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .modal h2 {
+            margin-bottom: 1.5rem;
+            font-family: 'Fredoka', sans-serif;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary);
+        }
+
+        .toggle-auth-mode {
+            background: none;
+            border: none;
+            color: var(--primary);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9rem;
             margin-top: 1rem;
+            display: inline-block;
         }
 
         /* --- Passport Dashboard --- */
@@ -188,23 +248,41 @@
 
     <header>
         <div class="logo">IncludeMe</div>
-        <button class="auth-btn" id="navAuthBtn" onclick="handleAuthAction()">Log In with GitHub</button>
+        <button class="auth-btn" id="navAuthBtn" onclick="handleHeaderAuthClick()">Log In / Sign Up</button>
     </header>
 
     <main id="home-screen" class="hero">
         <h1>You Belong Here Exactly As You Are</h1>
         <p>Welcome to a space built entirely to ensure neurodiverse individuals feel accepted, understood, and safely celebrated.</p>
-        <button class="cta-btn" onclick="loginWithGitHub()">
-            Sign Up via GitHub
+        <button class="cta-btn" onclick="openAuthModal('signup')">
+            Get Started
         </button>
     </main>
+
+    <div class="modal-overlay" id="authModalOverlay">
+        <div class="modal">
+            <h2 id="modalTitle">Create an Account</h2>
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+                <div class="form-group">
+                    <label for="authEmail">Email Address</label>
+                    <input type="email" id="authEmail" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" required placeholder="Choose a secure password" minlength="6">
+                </div>
+                <button type="submit" class="cta-btn" id="submitAuthBtn" style="width: 100%; margin-top: 1rem;">Sign Up</button>
+            </form>
+            <button class="toggle-auth-mode" id="toggleModeBtn" onclick="toggleAuthMode()">Already have an account? Log In</button>
+        </div>
+    </div>
 
     <section class="passport-section" id="passportSection">
         <h2 style="margin-bottom: 1.5rem; text-align: center; font-family: 'Fredoka', sans-serif;">Your Dynamic Passport</h2>
         <div class="passport-card">
             <div class="passport-header">
                 <div>
-                    <h3 id="passportName">Holder: Loading...</h3>
+                    <h3 id="passportName">Holder: Accessing Profile...</h3>
                     <p style="color: #718096; font-size: 0.9rem;">Your safe preferences sync automatically to your secure account.</p>
                 </div>
                 <span style="background: var(--accent); padding: 0.5rem 1rem; border-radius: 50px; font-weight: bold; font-size: 0.8rem;">SECURE</span>
@@ -239,73 +317,115 @@
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentUser = null;
+        let currentAuthMode = 'signup'; // Can be 'signup' or 'login'
 
-        // Check if a user is already logged in right when page loads
+        const authModalOverlay = document.getElementById('authModalOverlay');
+
+        // Check if user session exists on page startup
         window.onload = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                currentUser = session.user;
-                showDashboard();
-            }
+            handleAuthState(session?.user || null);
             
-            // Listen for auth adjustments (like successful GitHub redirects)
+            // Constantly monitor logs changes
             supabase.auth.onAuthStateChange((event, session) => {
-                if (session) {
-                    currentUser = session.user;
-                    showDashboard();
-                } else {
-                    currentUser = null;
-                    showHomeScreen();
-                }
+                handleAuthState(session?.user || null);
             });
         };
 
-        // Fire off GitHub Auth OAuth flow
-        async function loginWithGitHub() {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'github',
-                options: {
-                    redirectTo: window.location.origin
-                }
-            });
-            if (error) alert("Error logging in: " + error.message);
-        }
-
-        // Global button handler for header
-        function handleAuthAction() {
-            if (currentUser) {
-                supabase.auth.signOut();
+        function handleAuthState(user) {
+            if (user) {
+                currentUser = user;
+                showDashboard();
             } else {
-                loginWithGitHub();
+                currentUser = null;
+                showHomeScreen();
             }
         }
 
-        // Show dashboard views and grab saved records
+        // Modal Utilities
+        function openAuthModal(mode) {
+            currentAuthMode = mode;
+            const title = document.getElementById('modalTitle');
+            const submitBtn = document.getElementById('submitAuthBtn');
+            const toggleBtn = document.getElementById('toggleModeBtn');
+
+            if (currentAuthMode === 'signup') {
+                title.innerText = "Create an Account";
+                submitBtn.innerText = "Sign Up";
+                toggleBtn.innerText = "Already have an account? Log In";
+            } else {
+                title.innerText = "Welcome Back";
+                submitBtn.innerText = "Log In";
+                toggleBtn.innerText = "Don't have an account? Sign Up";
+            }
+            authModalOverlay.classList.add('active');
+        }
+
+        function closeAuthModal() {
+            authModalOverlay.classList.remove('active');
+        }
+
+        authModalOverlay.addEventListener('click', (e) => {
+            if (e.target === authModalOverlay) closeAuthMode();
+        });
+
+        function toggleAuthMode() {
+            openAuthModal(currentAuthMode === 'signup' ? 'login' : 'signup');
+        }
+
+        function handleHeaderAuthClick() {
+            if (currentUser) {
+                supabase.auth.signOut();
+            } else {
+                openAuthModal('login');
+            }
+        }
+
+        // Logic processing form signup or logins
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+
+            if (currentAuthMode === 'signup') {
+                const { data, error } = await supabase.auth.signUp({ email, password });
+                if (error) {
+                    alert("Sign Up Error: " + error.message);
+                } else {
+                    alert("Account registered successfully!");
+                    closeAuthModal();
+                }
+            } else {
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    alert("Log In Error: " + error.message);
+                } else {
+                    closeAuthModal();
+                }
+            }
+        }
+
+        // Dashboard Visual View Controls
         async function showDashboard() {
             document.getElementById('home-screen').style.display = 'none';
             document.getElementById('passportSection').style.display = 'block';
             document.getElementById('navAuthBtn').innerText = "Log Out";
             
-            // Fetch username from GitHub meta details
-            const name = currentUser.user_metadata.full_name || currentUser.user_metadata.user_name || "Community Member";
-            document.getElementById('passportName').innerText = `Holder: ${name}`;
-
-            // Load saved database configuration
+            document.getElementById('passportName').innerText = `Holder: ${currentUser.email}`;
             await loadPassportData();
         }
 
         function showHomeScreen() {
             document.getElementById('home-screen').style.display = 'flex';
             document.getElementById('passportSection').style.display = 'none';
-            document.getElementById('navAuthBtn').innerText = "Log In with GitHub";
+            document.getElementById('navAuthBtn').innerText = "Log In / Sign Up";
         }
 
-        // Toggle frontend style tags
         function toggleTag(tag) {
             tag.classList.toggle('active');
         }
 
-        // Read records from Supabase
+        // Load preferences from the database
         async function loadPassportData() {
             const { data, error } = await supabase
                 .from('passports')
@@ -313,15 +433,13 @@
                 .eq('id', currentUser.id)
                 .single();
 
-            if (error && error.code !== 'PGRST116') { // Ignore row-not-found error code for new profiles
-                console.error("Error fetching passport records:", error);
+            if (error && error.code !== 'PGRST116') {
+                console.error(error);
                 return;
             }
 
             if (data) {
                 document.getElementById('passportNotes').value = data.notes || '';
-                
-                // Read text items array and toggle matching tags
                 const tags = document.querySelectorAll('.sensitivity-tag');
                 tags.forEach(tag => {
                     if (data.sensitivities && data.sensitivities.includes(tag.innerText)) {
@@ -333,7 +451,7 @@
             }
         }
 
-        // Upsert passport configurations down to Supabase
+        // Save preferences to the database
         async function savePassport() {
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.innerText = "Saving...";
@@ -345,7 +463,6 @@
 
             const notesText = document.getElementById('passportNotes').value;
 
-            // 'upsert' automatically inserts a row if it doesn't exist, or updates it if it does
             const { error } = await supabase
                 .from('passports')
                 .upsert({
@@ -358,9 +475,9 @@
             saveBtn.innerText = "Save Passport Changes";
 
             if (error) {
-                alert("Could not update data: " + error.message);
+                alert("Could not save profile: " + error.message);
             } else {
-                alert("Your sensory preferences have been safely preserved in your profile!");
+                alert("Your dynamic sensory preferences have been safely updated!");
             }
         }
     </script>

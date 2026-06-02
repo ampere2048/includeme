@@ -315,22 +315,18 @@
         const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
         
-        // Explicitly declare variables to prevent global identifier crash
-        let supabase = null;
+        // FIX: Initialize it safely right here out in the open!
+        // This completely removes the "null" variable setup that was causing the timing crash.
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         let currentUser = null;
         let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
+        // This now strictly handles checking the user status once the website design layout is ready
         window.onload = async () => {
-            if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
-                console.warn("Please set your real SUPABASE_URL and SUPABASE_ANON_KEY strings.");
-                return;
-            }
-
             try {
-                // Initialize using the library client reference safely
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 const { data: { session } } = await supabase.auth.getSession();
                 handleAuthState(session?.user || null);
                 
@@ -338,7 +334,7 @@
                     handleAuthState(session?.user || null);
                 });
             } catch (err) {
-                console.error("Initialization failed:", err);
+                console.error("User session check failed:", err);
             }
         };
 
@@ -353,10 +349,6 @@
         }
 
         function openAuthModal(mode) {
-            if (!supabase) {
-                alert("Supabase client is not initialized yet. Please wait or check credentials!");
-                return;
-            }
             currentAuthMode = mode;
             const title = document.getElementById('modalTitle');
             const submitBtn = document.getElementById('submitAuthBtn');

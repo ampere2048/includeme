@@ -310,23 +310,26 @@
             </div>
         </div>
     </section>
+
     <script>
-        // CHANGE THESE TO YOUR REAL SUPABASE CREENTIALS FOR IT TO WORK NATIVELY
         const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
+        
+        // Explicitly declare variables to prevent global identifier crash
+        let supabase = null;
         let currentUser = null;
         let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
         window.onload = async () => {
-            // Safety fallback so code won't completely freeze if keys are missing
             if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
                 console.warn("Please set your real SUPABASE_URL and SUPABASE_ANON_KEY strings.");
                 return;
             }
 
             try {
+                // Initialize using the library client reference safely
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 const { data: { session } } = await supabase.auth.getSession();
                 handleAuthState(session?.user || null);
@@ -351,7 +354,7 @@
 
         function openAuthModal(mode) {
             if (!supabase) {
-                alert("Please add your real Supabase keys to the code file before trying to sign up!");
+                alert("Supabase client is not initialized yet. Please wait or check credentials!");
                 return;
             }
             currentAuthMode = mode;

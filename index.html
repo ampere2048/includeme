@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IncludeMe - Your Safe Space</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Lexend:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -311,25 +312,35 @@
     </section>
 
     <script>
-        // Initialize Supabase (REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS)
-        const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co/rest/v1/";
+        // CHANGE THESE TO YOUR REAL SUPABASE CREENTIALS FOR IT TO WORK NATIVELY
+        const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+        
+        let supabase;
         let currentUser = null;
-        let currentAuthMode = 'signup'; // Can be 'signup' or 'login'
+        let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
-        // Check if user session exists on page startup
         window.onload = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            handleAuthState(session?.user || null);
-            
-            // Constantly monitor logs changes
-            supabase.auth.onAuthStateChange((event, session) => {
+            // Safety fallback so code won't completely freeze if keys are missing
+            if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
+                console.warn("Please set your real SUPABASE_URL and SUPABASE_ANON_KEY strings.");
+                return;
+            }
+
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                const { data: { session } } = await supabase.auth.getSession();
                 handleAuthState(session?.user || null);
-            });
+                
+                supabase.auth.onAuthStateChange((event, session) => {
+                    handleAuthState(session?.user || null);
+                });
+            } catch (err) {
+                console.error("Initialization failed:", err);
+            }
         };
 
         function handleAuthState(user) {
@@ -342,8 +353,11 @@
             }
         }
 
-        // Modal Utilities - FIXED TYPO HERE
         function openAuthModal(mode) {
+            if (!supabase) {
+                alert("Please add your real Supabase keys to the code file before trying to sign up!");
+                return;
+            }
             currentAuthMode = mode;
             const title = document.getElementById('modalTitle');
             const submitBtn = document.getElementById('submitAuthBtn');
@@ -365,7 +379,6 @@
             authModalOverlay.classList.remove('active');
         }
 
-        // Fixed clicking outside to close
         authModalOverlay.addEventListener('click', (e) => {
             if (e.target === authModalOverlay) closeAuthModal();
         });
@@ -382,7 +395,6 @@
             }
         }
 
-        // Logic processing form signup or logins
         async function handleAuthSubmit(event) {
             event.preventDefault();
             const email = document.getElementById('authEmail').value;
@@ -393,8 +405,8 @@
                 if (error) {
                     alert("Sign Up Error: " + error.message);
                 } else {
-                    alert("Account registered successfully!");
-                    closeAuthModal();
+                    alert("Account registered successfully! If you turned off confirmation emails, you are good to log in.");
+                    openAuthModal('login');
                 }
             } else {
                 const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -406,12 +418,10 @@
             }
         }
 
-        // Dashboard Visual View Controls
         async function showDashboard() {
             document.getElementById('home-screen').style.display = 'none';
             document.getElementById('passportSection').style.display = 'block';
             document.getElementById('navAuthBtn').innerText = "Log Out";
-            
             document.getElementById('passportName').innerText = `Holder: ${currentUser.email}`;
             await loadPassportData();
         }
@@ -426,7 +436,6 @@
             tag.classList.toggle('active');
         }
 
-        // Load preferences from the database
         async function loadPassportData() {
             const { data, error } = await supabase
                 .from('passports')
@@ -452,7 +461,6 @@
             }
         }
 
-        // Save preferences to the database
         async function savePassport() {
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.innerText = "Saving...";

@@ -315,18 +315,20 @@
         const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
         
+        // Using a distinct variable name prevents the browser collision crash entirely!
+        const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         let currentUser = null;
         let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
-        // This now strictly handles checking the user status once the website design layout is ready
         window.onload = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session } } = await mySupabase.auth.getSession();
                 handleAuthState(session?.user || null);
                 
-                supabase.auth.onAuthStateChange((event, session) => {
+                mySupabase.auth.onAuthStateChange((event, session) => {
                     handleAuthState(session?.user || null);
                 });
             } catch (err) {
@@ -376,7 +378,7 @@
 
         function handleHeaderAuthClick() {
             if (currentUser) {
-                supabase.auth.signOut();
+                mySupabase.auth.signOut();
             } else {
                 openAuthModal('login');
             }
@@ -388,15 +390,15 @@
             const password = document.getElementById('authPassword').value;
 
             if (currentAuthMode === 'signup') {
-                const { data, error } = await supabase.auth.signUp({ email, password });
+                const { data, error } = await mySupabase.auth.signUp({ email, password });
                 if (error) {
                     alert("Sign Up Error: " + error.message);
                 } else {
-                    alert("Account registered successfully! If you turned off confirmation emails, you are good to log in.");
+                    alert("Account registered successfully!");
                     openAuthModal('login');
                 }
             } else {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                const { data, error } = await mySupabase.auth.signInWithPassword({ email, password });
                 if (error) {
                     alert("Log In Error: " + error.message);
                 } else {
@@ -424,7 +426,7 @@
         }
 
         async function loadPassportData() {
-            const { data, error } = await supabase
+            const { data, error } = await mySupabase
                 .from('passports')
                 .select('sensitivities, notes')
                 .eq('id', currentUser.id)
@@ -459,7 +461,7 @@
 
             const notesText = document.getElementById('passportNotes').value;
 
-            const { error } = await supabase
+            const { error } = await mySupabase
                 .from('passports')
                 .upsert({
                     id: currentUser.id,

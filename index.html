@@ -347,20 +347,16 @@
         const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
         
-        let supabase = null;
+        // CLEANED UP: Only declare 'supabase' ONCE right here. No 'let supabase = null;' below it.
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         let currentUser = null;
         let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
         window.onload = async () => {
-            if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
-                console.warn("Please set your real SUPABASE_URL and SUPABASE_ANON_KEY strings.");
-                return;
-            }
-
             try {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 const { data: { session } } = await supabase.auth.getSession();
                 handleAuthState(session?.user || null);
                 
@@ -383,10 +379,6 @@
         }
 
         function openAuthModal(mode) {
-            if (!supabase) {
-                alert("Please add your real Supabase keys to the code file before trying to sign up!");
-                return;
-            }
             currentAuthMode = mode;
             const title = document.getElementById('modalTitle');
             const submitBtn = document.getElementById('submitAuthBtn');
@@ -520,10 +512,9 @@
             }
         }
 
-        // NEW FUNCTION: Compiles link and injects QR code container layout
         function generatePassportQR() {
             const qrContainer = document.getElementById('qrcode');
-            qrContainer.innerHTML = ''; // Clear older QR code instances
+            qrContainer.innerHTML = ''; 
 
             // Builds public reference url targeting share.html?id=USER_ID
             const shareUrl = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?id=${currentUser.id}`;

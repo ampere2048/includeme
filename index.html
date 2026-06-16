@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <style>
         :root {
@@ -243,6 +244,28 @@
             font-weight: 600;
             margin-top: 1rem;
         }
+
+        .qr-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-left: 0.5rem;
+        }
+
+        .qr-container {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px dashed #e2e8f0;
+            display: none;
+            text-align: center;
+            align-items: center;
+            flex-direction: column;
+        }
     </style>
 </head>
 <body>
@@ -306,7 +329,16 @@
                 <h4 style="margin-top: 2rem;">Personal Notes & Accommodation Needs</h4>
                 <textarea class="notes-area" id="passportNotes" placeholder="Example: I prefer written instructions over verbal ones..."></textarea>
                 
-                <button class="save-btn" id="saveBtn" onclick="savePassport()">Save Passport Changes</button>
+                <div style="display: flex; flex-wrap: wrap;">
+                    <button class="save-btn" id="saveBtn" onclick="savePassport()">Save Passport Changes</button>
+                    <button class="qr-btn" id="qrBtn" onclick="generatePassportQR()">Generate Share QR Code</button>
+                </div>
+
+                <div id="qrSection" class="qr-container">
+                    <h4 style="margin-bottom: 0.5rem;">Your Shareable Passport QR Code</h4>
+                    <p style="color: #718096; font-size: 0.85rem; margin-bottom: 1rem;">Show this to an instructor or provider to share your support cards safely.</p>
+                    <div id="qrcode" style="display: inline-block; padding: 10px; background: white; border: 1px solid #cbd5e0;"></div>
+                </div>
             </div>
         </div>
     </section>
@@ -315,24 +347,28 @@
         const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
         
-        // Using a distinct variable name prevents the browser collision crash entirely!
-        const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
+        let supabase = null;
         let currentUser = null;
         let currentAuthMode = 'signup';
 
         const authModalOverlay = document.getElementById('authModalOverlay');
 
         window.onload = async () => {
+            if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
+                console.warn("Please set your real SUPABASE_URL and SUPABASE_ANON_KEY strings.");
+                return;
+            }
+
             try {
-                const { data: { session } } = await mySupabase.auth.getSession();
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session } } = await supabase.auth.getSession();
                 handleAuthState(session?.user || null);
                 
-                mySupabase.auth.onAuthStateChange((event, session) => {
+                supabase.auth.onAuthStateChange((event, session) => {
                     handleAuthState(session?.user || null);
                 });
             } catch (err) {
-                console.error("User session check failed:", err);
+                console.error("Initialization failed:", err);
             }
         };
 
@@ -347,6 +383,10 @@
         }
 
         function openAuthModal(mode) {
+            if (!supabase) {
+                alert("Please add your real Supabase keys to the code file before trying to sign up!");
+                return;
+            }
             currentAuthMode = mode;
             const title = document.getElementById('modalTitle');
             const submitBtn = document.getElementById('submitAuthBtn');
@@ -378,7 +418,7 @@
 
         function handleHeaderAuthClick() {
             if (currentUser) {
-                mySupabase.auth.signOut();
+                supabase.auth.signOut();
             } else {
                 openAuthModal('login');
             }
@@ -390,7 +430,7 @@
             const password = document.getElementById('authPassword').value;
 
             if (currentAuthMode === 'signup') {
-                const { data, error } = await mySupabase.auth.signUp({ email, password });
+                const { data, error } = await supabase.auth.signUp({ email, password });
                 if (error) {
                     alert("Sign Up Error: " + error.message);
                 } else {
@@ -398,7 +438,7 @@
                     openAuthModal('login');
                 }
             } else {
-                const { data, error } = await mySupabase.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) {
                     alert("Log In Error: " + error.message);
                 } else {
@@ -412,6 +452,7 @@
             document.getElementById('passportSection').style.display = 'block';
             document.getElementById('navAuthBtn').innerText = "Log Out";
             document.getElementById('passportName').innerText = `Holder: ${currentUser.email}`;
+            document.getElementById('qrSection').style.display = 'none';
             await loadPassportData();
         }
 
@@ -426,7 +467,7 @@
         }
 
         async function loadPassportData() {
-            const { data, error } = await mySupabase
+            const { data, error } = await supabase
                 .from('passports')
                 .select('sensitivities, notes')
                 .eq('id', currentUser.id)
@@ -461,7 +502,7 @@
 
             const notesText = document.getElementById('passportNotes').value;
 
-            const { error } = await mySupabase
+            const { error } = await supabase
                 .from('passports')
                 .upsert({
                     id: currentUser.id,
@@ -477,6 +518,26 @@
             } else {
                 alert("Your dynamic sensory preferences have been safely updated!");
             }
+        }
+
+        // NEW FUNCTION: Compiles link and injects QR code container layout
+        function generatePassportQR() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = ''; // Clear older QR code instances
+
+            // Builds public reference url targeting share.html?id=USER_ID
+            const shareUrl = `${window.location.origin}${window.location.pathname.replace('index.html', '')}share.html?id=${currentUser.id}`;
+            
+            // Generate QR Graphic
+            new QRCode(qrContainer, {
+                text: shareUrl,
+                width: 180,
+                height: 180,
+                colorDark : "#2d3748",
+                colorLight : "#ffffff"
+            });
+
+            document.getElementById('qrSection').style.display = 'flex';
         }
     </script>
 </body>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IncludeMe - Sensory Passport View</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Lexend:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --text-color: #2d3748;
+            --primary: #6c5ce7;
+            --card-bg: #ffffff;
+            --border-radius: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Lexend', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 2rem 1rem; }
+        .container { max-width: 600px; margin: 0 auto; background: var(--card-bg); border-radius: var(--border-radius); box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-top: 8px solid var(--primary); padding: 2rem; }
+        h2 { font-family: 'Fredoka', sans-serif; color: var(--primary); margin-bottom: 1rem; text-align: center; }
+        .section-title { margin-top: 1.5rem; margin-bottom: 0.5rem; font-weight: 600; }
+        .tag-container { margin-bottom: 1.5rem; }
+        .tag { display: inline-block; background: #ffeaa7; border: 1px solid #f1c40f; color: #d35400; padding: 0.5rem 1rem; border-radius: 20px; margin: 0.3rem; font-size: 0.9rem; font-weight: 600; }
+        .notes-box { background: #f8f9fa; border: 2px solid #e2e8f0; border-radius: 8px; padding: 1rem; min-height: 100px; white-space: pre-wrap; }
+        .error-msg { color: #e74c3c; text-align: center; font-weight: bold; margin-top: 2rem; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Sensory Passport</h2>
+        <div id="content">
+            <div class="section-title">Active Sensitivities:</div>
+            <div id="tags" class="tag-container">Loading...</div>
+            
+            <div class="section-title">Accommodation Notes:</div>
+            <div id="notes" class="notes-box">Loading...</div>
+        </div>
+        <div id="error" class="error-msg">Could not find or load this passport profile.</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://zfstezwsryqxrqrqovqy.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmc3RlendzcnlxeHJxcnFvdnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5Mzc0ODAsImV4cCI6MjA5NTUxMzQ4MH0.bsuO_DusCOzTA7NGlPSRXwKHKLtoSADV0YgvDOxhtOA";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        window.onload = async () => {
+            // Get the unique passport ID from the web link URL parameter (?id=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const passportId = urlParams.get('id');
+
+            if (!passportId) {
+                showError();
+                return;
+            }
+
+            // Fetch info publicly using the safe RLS policy we set up
+            const { data, error } = await supabase
+                .from('passports')
+                .select('sensitivities, notes')
+                .eq('id', passportId)
+                .single();
+
+            if (error || !data) {
+                showError();
+                return;
+            }
+
+            // Render tags
+            const tagsContainer = document.getElementById('tags');
+            tagsContainer.innerHTML = '';
+            if (data.sensitivities && data.sensitivities.length > 0) {
+                data.sensitivities.forEach(tagText => {
+                    const tagObj = document.createElement('span');
+                    tagObj.className = 'tag';
+                    tagObj.innerText = tagText;
+                    tagsContainer.appendChild(tagObj);
+                });
+            } else {
+                tagsContainer.innerHTML = '<span style="color:#718096; font-style:italic;">No sensitivities highlighted.</span>';
+            }
+
+            // Render notes
+            document.getElementById('notes').innerText = data.notes || 'No specific accommodation notes listed.';
+        };
+
+        function showError() {
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
